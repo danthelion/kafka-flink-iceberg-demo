@@ -1,0 +1,75 @@
+plugins {
+    id "java"
+    id "application"
+    id "com.github.johnrengelman.shadow" version "7.1.2"
+}
+
+group "com.arecadata.clickstream"
+version "0.0.1"
+mainClassName = 'com.arecadata.clickstream.ClickStreamStream'
+description = "Streaming clickstream data into Iceberg from Kafka via Flink"
+
+compileJava {
+    options.release.set(11)
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url "https://tabular-repository-public.s3.amazonaws.com/releases"
+    }
+    maven {
+        url "https://repository.apache.org/content/repositories/snapshots"
+    }
+}
+
+ext {
+    flinkVersion = "1.16.2"
+    flinkShortVersion = "1.16"
+    scalaVersion = "2.12"
+    icebergVersion = "1.2.1"
+    tabularVersion = "1.4.3"
+    hadoopVersion = "3.3.2"
+}
+
+configurations {
+    flinkShadowJar // dependencies to include in the shadow jar
+
+    // provided by Flink...
+    flinkShadowJar.exclude group: 'org.apache.flink', module: 'force-shading'
+    flinkShadowJar.exclude group: 'com.google.code.findbugs', module: 'jsr305'
+    flinkShadowJar.exclude group: 'org.slf4j'
+    flinkShadowJar.exclude group: 'org.apache.logging.log4j'
+}
+
+dependencies {
+    flinkShadowJar "org.apache.iceberg:iceberg-flink-runtime-${flinkShortVersion}:${icebergVersion}"
+    flinkShadowJar "org.apache.hadoop:hadoop-common:${hadoopVersion}" // needed by Iceberg Flink
+    flinkShadowJar "io.tabular:tabular-client:${tabularVersion}"
+    flinkShadowJar group: 'com.github.javafaker', name: 'javafaker', version: '1.0.2'
+    flinkShadowJar "org.apache.flink:flink-connector-kafka:${flinkVersion}"
+
+    // these are provided by Flink...
+    implementation "org.apache.flink:flink-streaming-java:${flinkVersion}"
+    implementation "org.apache.flink:flink-clients:${flinkVersion}"
+    implementation "org.apache.flink:flink-table-runtime:${flinkVersion}"
+    implementation "org.apache.iceberg:iceberg-flink-runtime-${flinkShortVersion}:${icebergVersion}"
+    implementation "org.apache.hadoop:hadoop-common:${hadoopVersion}" // needed by Iceberg Flink
+    implementation "io.tabular:tabular-client:${tabularVersion}"
+    implementation group: 'com.github.javafaker', name: 'javafaker', version: '1.0.2'
+}
+
+sourceSets {
+    main.compileClasspath += configurations.flinkShadowJar
+    main.runtimeClasspath += configurations.flinkShadowJar
+
+    test.compileClasspath += configurations.flinkShadowJar
+    test.runtimeClasspath += configurations.flinkShadowJar
+
+    javadoc.classpath += configurations.flinkShadowJar
+}
+
+shadowJar {
+    zip64 true
+    configurations = [project.configurations.flinkShadowJar]
+}
