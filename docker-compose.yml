@@ -2,6 +2,15 @@
 version: "3"
 
 services:
+
+  datagen:
+    build: datagen
+    container_name: datagen
+    networks:
+      iceberg_net:
+    depends_on:
+      - broker
+
   spark-iceberg:
     image: tabulario/spark-iceberg
     container_name: spark-iceberg
