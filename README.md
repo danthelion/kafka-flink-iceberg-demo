@@ -41,7 +41,3 @@ Validate
 
 SELECT * FROM test.clickstream LIMIT 10;
 ```
-
-Additional optional Flink arguments:
-- `--checkpoint` - Set a checkpoint interval in milliseconds (default: 10000)
-- `--event_interval` -  Set a time in milliseconds to sleep between each randomly generated record (default: 5000)
