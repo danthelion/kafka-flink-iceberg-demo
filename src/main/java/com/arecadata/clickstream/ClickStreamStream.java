@@ -33,9 +33,7 @@ public class ClickStreamStream {
 
     public static void main(String[] args) throws Exception {
         ParameterTool parameters = ParameterTool.fromArgs(args);
-        LOGGER.info("APPLOG: Parameters: {}", parameters.toMap());
         Configuration hadoopConf = new Configuration();
-        LOGGER.info("APPLOG: Hadoop Configuration: {}", hadoopConf);
 
         Map<String, String> catalogProperties = new HashMap<>();
         catalogProperties.put("uri", parameters.get("uri", "http://rest:8181"));
@@ -43,15 +41,11 @@ public class ClickStreamStream {
         catalogProperties.put("warehouse", parameters.get("warehouse", "s3://warehouse/wh/"));
         catalogProperties.put("s3.endpoint", parameters.get("s3-endpoint", "http://minio:9000"));
 
-        LOGGER.info("APPLOG: Catalog Properties: {}", catalogProperties);
-
         CatalogLoader catalogLoader = CatalogLoader.custom(
                 "demo",
                 catalogProperties,
                 hadoopConf,
                 parameters.get("catalog-impl", "org.apache.iceberg.rest.RESTCatalog"));
-
-        LOGGER.info("APPLOG: Catalog Loader: {}", catalogLoader);
 
         Schema schema = new Schema(
                 Types.NestedField.optional(1, "timestamp", Types.StringType.get()),
@@ -63,18 +57,11 @@ public class ClickStreamStream {
                 Types.NestedField.optional(7, "viewed_percent", Types.IntegerType.get())
         );
 
-        LOGGER.info("APPLOG: Schema: {}", schema);
-
         Catalog catalog = catalogLoader.loadCatalog();
 
-        LOGGER.info("APPLOG: Catalog: {}", catalog);
-
-        String databaseName = "test3";
-        String tableName = "clickstream";
-
         TableIdentifier outputTable = TableIdentifier.of(
-                databaseName,
-                tableName);
+                "test",
+                "clickstream");
 
         if (!catalog.tableExists(outputTable)) {
             catalog.createTable(outputTable, schema, PartitionSpec.unpartitioned());
@@ -82,10 +69,7 @@ public class ClickStreamStream {
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         StreamTableEnvironment tableEnv = StreamTableEnvironment.create(env);
-        LOGGER.info("APPLOG: Execution Environment: {}", env);
-        LOGGER.info("APPLOG: Table Environment: {}", tableEnv);
         env.enableCheckpointing(Integer.parseInt(parameters.get("checkpoint", "10000")));
-        LOGGER.info("APPLOG: Checkpointing: {}", env.getCheckpointConfig());
 
         KafkaSource<Click> source = KafkaSource.<Click>builder()
                 .setBootstrapServers("broker:29092")
@@ -95,19 +79,9 @@ public class ClickStreamStream {
                 .setValueOnlyDeserializer(new ClickDeserializationSchema())
                 .build();
 
-        LOGGER.info("APPLOG: Kafka Source: {}", source);
-
         DataStreamSource<Click> stream = env.fromSource(source, WatermarkStrategy.noWatermarks(), "Kafka Source");
-        LOGGER.info("APPLOG: Stream: {}", stream);
-
         DataStream<Row> streamRow = stream.map(Click::toRow);
-        LOGGER.info("APPLOG: Stream Row: {}", streamRow);
 
-
-        // Print
-        streamRow.print();
-
-        // Configure row-based append
         FlinkSink.forRow(streamRow, FlinkSchemaUtil.toSchema(schema))
                 .tableLoader(TableLoader.fromCatalog(catalogLoader, outputTable))
                 .toBranch(parameters.get("branch", "main"))
@@ -115,7 +89,6 @@ public class ClickStreamStream {
                 .writeParallelism(2)
                 .append();
 
-        // Execute the flink app
         env.execute();
     }
 }
