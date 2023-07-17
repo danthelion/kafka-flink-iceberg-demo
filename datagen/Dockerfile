@@ -1,4 +1,4 @@
-FROM python3.10
+FROM python:3.10
 
 COPY requirements.txt /tmp/requirements.txt
 
